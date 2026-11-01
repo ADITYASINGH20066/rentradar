@@ -5,6 +5,7 @@ A rental discovery experience for India, built with React, TypeScript, and Sprin
 ## What’s here
 
 - Responsive rental discovery page with animated transitions and search filters
+- Branded animated loading screen, image shimmer placeholders, and scroll-triggered listing reveals
 - Saved listings, owner listing form, and renter inquiry flow
 - Spring REST API for listings, inquiries, moderation, and image uploads
 - Listing approval workflow (`PENDING`, `APPROVED`, `REJECTED`)

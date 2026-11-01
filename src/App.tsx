@@ -54,6 +54,7 @@ const formatRent = (amount: number) => new Intl.NumberFormat("en-IN", {
 
 function App() {
   const [listings, setListings] = useState<Listing[]>(demoListings);
+  const [isBooting, setIsBooting] = useState(true);
   const [saved, setSaved] = useState<number[]>(() => {
     try {
       const stored = window.localStorage.getItem("rentradar:saved");
@@ -78,6 +79,11 @@ function App() {
   const [ownerListings, setOwnerListings] = useState<Listing[]>([]);
   const [moderationListings, setModerationListings] = useState<Listing[]>([]);
   const [dashboardTab, setDashboardTab] = useState<"mine" | "review">("mine");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsBooting(false), 1050);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     window.localStorage.setItem("rentradar:saved", JSON.stringify(saved));
@@ -271,7 +277,7 @@ function App() {
             <div className="hero-footnote"><Sparkles size={14} /> Real homes, personally reviewed <span>·</span> No bait-and-switch</div>
           </div>
           <motion.div className="hero-visual" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.15 }}>
-            <img className="hero-image" src={photo} alt="Warm, sunlit living room with natural textures" />
+            <img className="hero-image" src={photo} alt="Warm, sunlit living room with natural textures" fetchPriority="high" />
             <div className="photo-caption"><span className="caption-dot" /><span>Indiranagar, Bengaluru</span><span className="caption-divider" /><span>Just feels right</span></div>
             <div className="floating-note"><span className="note-icon"><Check size={16} /></span><span><b>Good homes, good humans</b><small>Every listing is the real deal</small></span></div>
             <div className="image-index"><span>01</span> / 18</div>
@@ -297,9 +303,12 @@ function App() {
           <div className="result-meta"><span><b>{visibleListings.length}</b> {savedOnly ? "saved homes" : "homes worth a look"}</span><button onClick={() => { setSearch(""); setLocation(""); setMaxPrice(""); setBedrooms("Any beds"); setFacility(""); setSavedOnly(false); setActiveFilter("All homes"); }}>Reset filters <ArrowDown size={13} /></button></div>
           <div className="listing-grid" id="listing-grid">
             {visibleListings.map((listing, index) => (
-              <motion.article className="listing-card" key={listing.id} layout initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: index * 0.06 }}>
+              <motion.article className="listing-card" key={listing.id} layout initial={{ opacity: 0, y: 22 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.14 }} transition={{ duration: 0.52, delay: (index % 6) * 0.055, ease: [0.2, 0.7, 0.2, 1] }}>
                 <div className="card-image-wrap">
-                  <img src={listing.image || photo} alt={listing.title} className="card-image" loading="lazy" />
+                  <img src={listing.image || photo} alt={listing.title} className="card-image" loading="lazy" onLoad={(event) => event.currentTarget.parentElement?.classList.add("image-loaded")} onError={(event) => {
+                    if (event.currentTarget.src !== photo) event.currentTarget.src = photo;
+                    else event.currentTarget.parentElement?.classList.add("image-loaded");
+                  }} />
                   {listing.featured && <span className="featured-pill"><Sparkles size={12} /> A little special</span>}
                   <button className={saved.includes(listing.id) ? "save-button is-saved" : "save-button"} onClick={() => toggleSaved(listing.id)} aria-label={saved.includes(listing.id) ? "Remove saved listing" : "Save listing"}><Heart size={18} fill={saved.includes(listing.id) ? "currentColor" : "none"} /></button>
                   <div className="image-pagination"><span className="pagination-active" /><span /><span /></div>
@@ -343,6 +352,23 @@ function App() {
               {dashboardTab === "mine" ? <><form className="dashboard-email" onSubmit={loadOwnerListings}><input aria-label="Owner email" type="email" required value={dashboardEmail} onChange={(event) => setDashboardEmail(event.target.value)} placeholder="Enter your listing email" /><button type="submit">Find listings</button></form><div className="dashboard-list">{ownerListings.length ? ownerListings.map((listing) => <div className="dashboard-item" key={listing.id}><span><b>{listing.title}</b><small>{listing.neighborhood} · {formatRent(listing.price)} / mo</small></span><i className={`status-${(listing.status || "pending").toLowerCase()}`}>{listing.status || "PENDING"}</i></div>) : <p className="dashboard-empty">Your listings will show up here.</p>}</div></> : <div className="dashboard-list">{moderationListings.length ? moderationListings.map((listing) => <div className="moderation-item" key={listing.id}><span><b>{listing.title}</b><small>{listing.neighborhood} · {listing.ownerEmail || ""}</small></span><div><button aria-label={`Approve ${listing.title}`} onClick={() => moderateListing(listing.id, "APPROVED")}><Check size={15} /></button><button aria-label={`Reject ${listing.title}`} onClick={() => moderateListing(listing.id, "REJECTED")}><X size={15} /></button></div></div>) : <p className="dashboard-empty">The review queue is all clear.</p>}</div>}
             </>}
           </motion.div>
+        </motion.div>}
+      </AnimatePresence>
+      <AnimatePresence>
+        {isBooting && <motion.div className="app-loader" role="status" aria-label="Loading RentRadar" initial={{ opacity: 1 }} exit={{ opacity: 0, scale: 1.015, transition: { duration: 0.45, ease: "easeInOut" } }}>
+          <div className="loader-glow loader-glow-one" />
+          <div className="loader-glow loader-glow-two" />
+          <motion.div className="loader-content" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: "easeOut" }}>
+            <motion.div className="loader-mark" animate={{ y: [0, -5, 0], rotate: [0, -3, 0] }} transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}>
+              <House size={27} strokeWidth={1.7} />
+              <span className="loader-orbit" />
+            </motion.div>
+            <div className="loader-brand">rent<span>radar</span></div>
+            <p className="loader-caption">Somewhere good is just around the corner.</p>
+            <div className="loader-track"><motion.span initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: 0.9, ease: [0.7, 0, 0.3, 1] }} /></div>
+            <div className="loader-city"><MapPin size={12} /> FINDING HOMES ACROSS INDIA</div>
+          </motion.div>
+          <div className="loader-footer"><span>MADE FOR THE FEELING OF HOME</span><span>01 — 18</span></div>
         </motion.div>}
       </AnimatePresence>
       <AnimatePresence>{notice && <motion.div className="toast" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}><Check size={16} />{notice}<button onClick={() => setNotice("")} aria-label="Dismiss"><X size={15} /></button></motion.div>}</AnimatePresence>
