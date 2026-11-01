@@ -1,0 +1,40 @@
+.nav-dashboard {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+}
+
+.nav-dashboard:hover { color: #2d483b; }
+.saved-active { color: #bd6d62; }
+.quick-filters { display: flex; align-items: center; gap: 17px; }
+.facility-filter { display: flex; align-items: center; gap: 6px; color: #879286; border-bottom: 1px solid #e5e9e2; padding: 7px 0; }
+.facility-filter select { border: 0; outline: 0; appearance: none; background: transparent; color: #7d897f; font-size: 10px; }
+
+.dashboard-tabs { display: flex; gap: 18px; border-bottom: 1px solid #e5eae2; margin-bottom: 14px; }
+.dashboard-tab { border: 0; border-bottom: 2px solid transparent; background: transparent; color: #899389; padding: 9px 0; font-size: 10px; }
+.dashboard-tab.active { color: #365a46; border-color: #69836b; font-weight: 700; }
+.dashboard-email { display: flex; gap: 8px; margin-bottom: 12px; }
+.dashboard-email input { min-width: 0; flex: 1; padding: 10px; border: 1px solid #e5eae2; background: white; font-size: 10px; }
+.dashboard-email button { border: 0; padding: 0 12px; background: #355a46; color: white; font-size: 10px; }
+.dashboard-list { display: grid; }
+.dashboard-item, .moderation-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid #edf0eb; }
+.dashboard-item b, .dashboard-item small, .moderation-item b, .moderation-item small { display: block; }
+.dashboard-item b, .moderation-item b { font: 700 10px Manrope, sans-serif; color: #405546; }
+.dashboard-item small, .moderation-item small { margin-top: 5px; font-size: 9px; color: #8a948a; }
+.dashboard-item i { flex: none; font-size: 8px; font-style: normal; color: #718174; }
+.status-pending { color: #ad8b49 !important; }
+.status-approved { color: #54815b !important; }
+.status-rejected { color: #b76d62 !important; }
+.moderation-item > div { display: flex; gap: 5px; }
+.moderation-item button { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid #e5eae2; background: white; color: #62805c; }
+.moderation-item button:last-child { color: #b76d62; }
+.dashboard-empty { padding: 20px 0; text-align: center; color: #899389; font-size: 10px; }
+
+@media (max-width: 740px) {
+  .quick-filters { align-self: flex-end; gap: 12px; }
+  .facility-filter { gap: 4px; }
+  .facility-filter select { max-width: 108px; font-size: 9px; }
+  .quick-search input { width: 125px; }
+}
