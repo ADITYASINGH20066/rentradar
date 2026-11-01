@@ -217,6 +217,12 @@ function App() {
     }
   };
 
+  const searchCity = (city: string) => {
+    setLocation(city);
+    setSavedOnly(false);
+    document.getElementById("listing-grid")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -242,16 +248,16 @@ function App() {
       <main>
         <section className="hero" id="explore">
           <div className="hero-copy">
-            <motion.div className="eyebrow" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+            <motion.div className="eyebrow" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.65, delay: 0.12, ease: [0.2, 0.7, 0.2, 1] }}>
               <span className="eyebrow-line" /> A better way to find home
             </motion.div>
-            <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.65, delay: 0.08 }}>
+            <motion.h1 initial={{ opacity: 0, y: 24, filter: "blur(5px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: 0.85, delay: 0.2, ease: [0.2, 0.7, 0.2, 1] }}>
               Find a place<br />that feels like <em>you.</em>
             </motion.h1>
-            <motion.p className="hero-subtitle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }}>
+            <motion.p className="hero-subtitle" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.34 }}>
               Lovely homes across India. Good people. A little less<br className="desktop-break" /> scrolling, a lot more <span>feeling at home.</span>
             </motion.p>
-            <motion.div className="search-panel" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}>
+            <motion.div className="search-panel" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.42, ease: [0.2, 0.7, 0.2, 1] }}>
               <label className="search-field location-field">
                 <MapPin size={18} />
                 <span className="field-content"><span className="field-label">Where to?</span>
@@ -275,11 +281,19 @@ function App() {
               <button className="search-button" onClick={() => { setSavedOnly(false); document.getElementById("listing-grid")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}><Search size={17} /> Find my place</button>
             </motion.div>
             <div className="hero-footnote"><Sparkles size={14} /> Real homes, personally reviewed <span>·</span> No bait-and-switch</div>
+            <motion.div className="city-shortcuts" initial="hidden" animate="visible" variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.07, delayChildren: 0.62 } } }}>
+              <span className="city-shortcuts-label">EXPLORE</span>
+              {["Bengaluru", "Mumbai", "Pune", "Hyderabad", "Delhi"].map((city) => <motion.button key={city} variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.32 }} onClick={() => searchCity(city)}>{city}<ArrowUpRight size={11} /></motion.button>)}
+            </motion.div>
           </div>
-          <motion.div className="hero-visual" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.15 }}>
+          <motion.div className="hero-visual" initial={{ opacity: 0, y: 18, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 1, delay: 0.22, ease: [0.2, 0.7, 0.2, 1] }}>
             <img className="hero-image" src={photo} alt="Warm, sunlit living room with natural textures" fetchPriority="high" />
             <div className="photo-caption"><span className="caption-dot" /><span>Indiranagar, Bengaluru</span><span className="caption-divider" /><span>Just feels right</span></div>
-            <div className="floating-note"><span className="note-icon"><Check size={16} /></span><span><b>Good homes, good humans</b><small>Every listing is the real deal</small></span></div>
+            <motion.div className="floating-note" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.82, duration: 0.5 }}><span className="note-icon"><Check size={16} /></span><span><b>Good homes, good humans</b><small>Every listing is the real deal</small></span></motion.div>
+            <motion.div className="photo-coordinate" initial={{ opacity: 0, scale: 0.75 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 1, type: "spring", stiffness: 180, damping: 16 }}>
+              <span className="coordinate-icon"><MapPin size={16} /></span><span><b>12.9784° N</b><small>77.6408° E</small></span>
+            </motion.div>
+            <div className="photo-frame-index"><span>FEATURED HOME</span><span>№ 001</span></div>
             <div className="image-index"><span>01</span> / 18</div>
           </motion.div>
         </section>
@@ -303,7 +317,7 @@ function App() {
           <div className="result-meta"><span><b>{visibleListings.length}</b> {savedOnly ? "saved homes" : "homes worth a look"}</span><button onClick={() => { setSearch(""); setLocation(""); setMaxPrice(""); setBedrooms("Any beds"); setFacility(""); setSavedOnly(false); setActiveFilter("All homes"); }}>Reset filters <ArrowDown size={13} /></button></div>
           <div className="listing-grid" id="listing-grid">
             {visibleListings.map((listing, index) => (
-              <motion.article className="listing-card" key={listing.id} layout initial={{ opacity: 0, y: 22 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.14 }} transition={{ duration: 0.52, delay: (index % 6) * 0.055, ease: [0.2, 0.7, 0.2, 1] }}>
+              <motion.article className="listing-card" key={listing.id} layout initial={{ opacity: 0, y: 25, filter: "blur(3px)" }} whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }} whileHover={{ y: -7, transition: { duration: 0.3, ease: [0.2, 0.7, 0.2, 1] } }} viewport={{ once: true, amount: 0.14 }} transition={{ duration: 0.58, delay: (index % 6) * 0.055, ease: [0.2, 0.7, 0.2, 1] }}>
                 <div className="card-image-wrap">
                   <img src={listing.image || photo} alt={listing.title} className="card-image" loading="lazy" onLoad={(event) => event.currentTarget.parentElement?.classList.add("image-loaded")} onError={(event) => {
                     if (event.currentTarget.src !== photo) event.currentTarget.src = photo;
@@ -317,6 +331,7 @@ function App() {
                   <div className="card-location">{listing.neighborhood} <span>·</span> {listing.location.split(",")[0]}</div>
                   <div className="card-title-row"><h3>{listing.title}</h3><span className="listing-type">{listing.type}</span></div>
                   <div className="card-details"><span><BedDouble size={15} /> {listing.beds} bed</span><span><Bath size={15} /> {listing.baths} bath</span><span><Square size={14} /> {listing.area} sqft</span></div>
+                  {listing.tags && <div className="card-amenities">{listing.tags.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}{listing.tags.length > 2 && <span className="amenity-more">+{listing.tags.length - 2}</span>}</div>}
                   <div className="card-bottom"><span className="card-price">{formatRent(listing.price)}<small> / month</small></span><button className="inquire-button" onClick={() => showInquiry(listing)}>Say hello <ArrowUpRight size={14} /></button></div>
                 </div>
               </motion.article>
