@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Bath, BedDouble, Check,
+  ArrowDown, ArrowRight, ArrowUp, ArrowUpRight, Bath, BedDouble, Check,
   ChevronDown, Heart, House, MapPin, Menu, Search, SlidersHorizontal, Sparkles,
-  Square, Wifi, X,
+  Square, Star, Wifi, X,
 } from "lucide-react";
+import { TornPageBreakthrough } from "./TornPageBreakthrough";
+import "./enhancements.css";
 
 type Listing = {
   id: number;
@@ -52,9 +54,43 @@ const formatRent = (amount: number) => new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0,
 }).format(amount);
 
+/* ─── Enhancement #5: Animated counter hook ─── */
+function useAnimatedCounter(target: number, duration = 1600, startDelay = 600) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let raf: number;
+    const timeout = window.setTimeout(() => {
+      const start = performance.now();
+      const step = (now: number) => {
+        const elapsed = now - start;
+        const progress = Math.min(elapsed / duration, 1);
+        // ease-out cubic
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setCount(Math.round(eased * target));
+        if (progress < 1) raf = requestAnimationFrame(step);
+      };
+      raf = requestAnimationFrame(step);
+    }, startDelay);
+    return () => { window.clearTimeout(timeout); cancelAnimationFrame(raf); };
+  }, [target, duration, startDelay]);
+  return count;
+}
+
+/* ─── Floating hero particles config ─── */
+const heroParticles = [
+  { size: 6, x: "12%", y: "18%", delay: 0, dur: 4.5 },
+  { size: 4, x: "78%", y: "25%", delay: 0.8, dur: 5.2 },
+  { size: 5, x: "45%", y: "72%", delay: 1.4, dur: 3.8 },
+  { size: 3, x: "88%", y: "60%", delay: 0.3, dur: 4.0 },
+  { size: 7, x: "22%", y: "80%", delay: 1.0, dur: 5.5 },
+  { size: 4, x: "65%", y: "10%", delay: 0.6, dur: 4.2 },
+];
+
 function App() {
   const [listings, setListings] = useState<Listing[]>(demoListings);
   const [isBooting, setIsBooting] = useState(true);
+  const [isTearing, setIsTearing] = useState(false);
+  const [breakthroughKey, setBreakthroughKey] = useState(0);
   const [saved, setSaved] = useState<number[]>(() => {
     try {
       const stored = window.localStorage.getItem("rentradar:saved");
@@ -80,15 +116,54 @@ function App() {
   const [moderationListings, setModerationListings] = useState<Listing[]>([]);
   const [dashboardTab, setDashboardTab] = useState<"mine" | "review">("mine");
 
+  /* ─── High-performance DOM Refs (Zero React re-render overhead) ─── */
+  const cursorRef = useRef<HTMLDivElement>(null);
+  const scrollBarRef = useRef<HTMLDivElement>(null);
+  const heroImageRef = useRef<HTMLImageElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+
+  /* ─── Enhancement #3: Show back-to-top state ─── */
+  const [showBackTop, setShowBackTop] = useState(false);
+
+  /* ─── Enhancement #5: Animated counter ─── */
+  const listingCount = useAnimatedCounter(listings.length, 1600, 1200);
+  const [bootPhase, setBootPhase] = useState("Calibrating rental radar across India...");
+
+  /* ─── Boot sequence with progressive status steps & 4-page tear trigger ─── */
   useEffect(() => {
-    const timer = window.setTimeout(() => setIsBooting(false), 1050);
-    return () => window.clearTimeout(timer);
+    const p1 = window.setTimeout(() => setBootPhase("Scanning verified neighborhoods & owners..."), 450);
+    const p2 = window.setTimeout(() => setBootPhase("Homes curated. Tearing open the portal..."), 900);
+    const p3 = window.setTimeout(() => {
+      setIsBooting(false);
+      setIsTearing(true);
+    }, 1320);
+    return () => {
+      window.clearTimeout(p1);
+      window.clearTimeout(p2);
+      window.clearTimeout(p3);
+    };
   }, []);
 
+  const handleReplayIntro = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    setIsBooting(true);
+    setIsTearing(false);
+    setBootPhase("Calibrating rental radar across India...");
+    setBreakthroughKey((k) => k + 1);
+    window.setTimeout(() => setBootPhase("Scanning verified neighborhoods & owners..."), 450);
+    window.setTimeout(() => setBootPhase("Homes curated. Tearing open the portal..."), 900);
+    window.setTimeout(() => {
+      setIsBooting(false);
+      setIsTearing(true);
+    }, 1320);
+  };
+
+  /* ─── Persist saved (existing) ─── */
   useEffect(() => {
     window.localStorage.setItem("rentradar:saved", JSON.stringify(saved));
   }, [saved]);
 
+  /* ─── Fetch listings (existing) ─── */
   useEffect(() => {
     fetch("/api/listings")
       .then((response) => {
@@ -96,7 +171,92 @@ function App() {
         return response.json() as Promise<Listing[]>;
       })
       .then((data) => { if (data.length) setListings(data); })
-      .catch(() => setNotice("You’re browsing Indian sample homes. Connect the Spring Boot API to load live listings."));
+      .catch(() => setNotice("You're browsing Indian sample homes. Connect the Spring Boot API to load live listings."));
+  }, []);
+
+  /* ─── Enhancement #1: Zero-rerender mouse tracking (100% compositor) ─── */
+  useEffect(() => {
+    let rafId: number;
+    const handleMouseMove = (e: MouseEvent) => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        if (cursorRef.current) {
+          cursorRef.current.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0) translate(-50%, -50%)`;
+        }
+      });
+    };
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener("mousemove", handleMouseMove);
+    };
+  }, []);
+
+  /* ─── Enhancement #2 + #14: Zero-rerender scroll progress & parallax ─── */
+  useEffect(() => {
+    let rafId: number;
+    let lastBackTop = false;
+
+    const handleScroll = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const scrollTop = document.documentElement.scrollTop;
+        const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+
+        if (scrollBarRef.current && scrollHeight > 0) {
+          const ratio = Math.min(Math.max(scrollTop / scrollHeight, 0), 1);
+          scrollBarRef.current.style.transform = `scaleX(${ratio})`;
+        }
+
+        if (heroImageRef.current && heroRef.current) {
+          const heroBottom = heroRef.current.offsetTop + heroRef.current.offsetHeight;
+          if (scrollTop < heroBottom) {
+            heroImageRef.current.style.transform = `translate3d(0, ${scrollTop * 0.28}px, 0)`;
+          }
+        }
+
+        const shouldShow = scrollTop > 480;
+        if (shouldShow !== lastBackTop) {
+          lastBackTop = shouldShow;
+          setShowBackTop(shouldShow);
+        }
+      });
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
+  /* ─── Enhancement #10: Toast auto-dismiss ─── */
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(""), 5000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  /* ─── Enhancement #4: 3D tilt + dynamic spotlight for listing cards ─── */
+  const handleCardMouseMove = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const rotateX = ((y - centerY) / centerY) * -4;
+    const rotateY = ((x - centerX) / centerX) * 4;
+    card.style.setProperty("--mouse-x", `${x}px`);
+    card.style.setProperty("--mouse-y", `${y}px`);
+    card.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-7px)`;
+  }, []);
+
+  const handleCardMouseLeave = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    const card = e.currentTarget;
+    card.style.transform = "";
+    card.style.removeProperty("--mouse-x");
+    card.style.removeProperty("--mouse-y");
   }, []);
 
   const visibleListings = useMemo(() => listings.filter((listing) => {
@@ -173,7 +333,7 @@ function App() {
         }),
       });
       if (!response.ok) throw new Error("The listing could not be submitted. Check the details and try again.");
-      setNotice("Thanks for sharing your place. It’s in the review queue.");
+      setNotice("Thanks for sharing your place. It's in the review queue.");
       setModal(null);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "The listing could not be submitted.");
@@ -225,9 +385,24 @@ function App() {
 
   return (
     <div className="app-shell">
+      {/* ─── Enhancement #1: Cursor follower (GPU composited) ─── */}
+      <div className="cursor-glow" ref={cursorRef} />
+
+      {/* ─── Enhancement #2: Scroll progress bar (GPU composited) ─── */}
+      <div className="scroll-progress-track">
+        <div className="scroll-progress-bar" ref={scrollBarRef} />
+      </div>
+
       <header className="topbar">
-        <a className="brand" href="#" aria-label="RentRadar home">
-          <span className="brand-mark"><House size={18} strokeWidth={2.2} /></span>
+        {/* ─── Enhancement #12: Interactive brand logo ─── */}
+        <a className="brand brand-interactive" href="#" aria-label="RentRadar home">
+          <motion.span
+            className="brand-mark"
+            whileHover={{ rotate: -12, scale: 1.15 }}
+            transition={{ type: "spring", stiffness: 300, damping: 15 }}
+          >
+            <House size={18} strokeWidth={2.2} />
+          </motion.span>
           <span>rent<span className="brand-light">radar</span></span>
         </a>
         <nav className={menuOpen ? "nav-links nav-open" : "nav-links"}>
@@ -237,6 +412,9 @@ function App() {
           <button className="nav-dashboard" onClick={() => { setModal("dashboard"); setMenuOpen(false); }}>Owner dashboard</button>
         </nav>
         <div className="header-actions">
+          <button className="replay-intro-btn" onClick={handleReplayIntro} title="Replay the 4-page tear breakthrough">
+            <Sparkles size={12} /> Replay intro
+          </button>
           <button className={savedOnly ? "saved-link saved-active" : "saved-link"} onClick={() => { setSavedOnly(!savedOnly); setActiveFilter("All homes"); document.getElementById("listing-grid")?.scrollIntoView({ behavior: "smooth" }); }}>
             <Heart size={16} /> Saved <span className="saved-count">{saved.length}</span>
           </button>
@@ -245,108 +423,219 @@ function App() {
         <button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">{menuOpen ? <X /> : <Menu />}</button>
       </header>
 
-      <main>
-        <section className="hero" id="explore">
-          <div className="hero-copy">
-            <motion.div className="eyebrow" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.65, delay: 0.12, ease: [0.2, 0.7, 0.2, 1] }}>
-              <span className="eyebrow-line" /> A better way to find home
-            </motion.div>
-            <motion.h1 initial={{ opacity: 0, y: 24, filter: "blur(5px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: 0.85, delay: 0.2, ease: [0.2, 0.7, 0.2, 1] }}>
-              Find a place<br />that feels like <em>you.</em>
-            </motion.h1>
-            <motion.p className="hero-subtitle" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.34 }}>
-              Lovely homes across India. Good people. A little less<br className="desktop-break" /> scrolling, a lot more <span>feeling at home.</span>
-            </motion.p>
-            <motion.div className="search-panel" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.42, ease: [0.2, 0.7, 0.2, 1] }}>
-              <label className="search-field location-field">
-                <MapPin size={18} />
-                <span className="field-content"><span className="field-label">Where to?</span>
-                  <input aria-label="Neighborhood or city" placeholder="Try Bengaluru, Mumbai, Pune..." value={location} onChange={(event) => setLocation(event.target.value)} />
-                </span>
-              </label>
-              <label className="search-field price-field">
-                <span className="field-content"><span className="field-label">Monthly budget</span>
-                  <select aria-label="Monthly budget" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)}>
-                    <option value="">Any budget</option><option value="15000">Up to ₹15,000</option><option value="25000">Up to ₹25,000</option><option value="35000">Up to ₹35,000</option><option value="50000">Up to ₹50,000</option><option value="75000">Up to ₹75,000</option>
-                  </select>
-                </span><ChevronDown size={16} />
-              </label>
-              <label className="search-field bed-field">
-                <span className="field-content"><span className="field-label">Bedrooms</span>
-                  <select aria-label="Bedrooms" value={bedrooms} onChange={(event) => setBedrooms(event.target.value)}>
-                    <option>Any beds</option><option>1+ beds</option><option>2+ beds</option><option>3+ beds</option>
-                  </select>
-                </span><ChevronDown size={16} />
-              </label>
-              <button className="search-button" onClick={() => { setSavedOnly(false); document.getElementById("listing-grid")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}><Search size={17} /> Find my place</button>
-            </motion.div>
-            <div className="hero-footnote"><Sparkles size={14} /> Real homes, personally reviewed <span>·</span> No bait-and-switch</div>
-            <motion.div className="city-shortcuts" initial="hidden" animate="visible" variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.07, delayChildren: 0.62 } } }}>
-              <span className="city-shortcuts-label">EXPLORE</span>
-              {["Bengaluru", "Mumbai", "Pune", "Hyderabad", "Delhi"].map((city) => <motion.button key={city} variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.32 }} onClick={() => searchCity(city)}>{city}<ArrowUpRight size={11} /></motion.button>)}
-            </motion.div>
-          </div>
-          <motion.div className="hero-visual" initial={{ opacity: 0, y: 18, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 1, delay: 0.22, ease: [0.2, 0.7, 0.2, 1] }}>
-            <img className="hero-image" src={photo} alt="Warm, sunlit living room with natural textures" fetchPriority="high" />
-            <div className="photo-caption"><span className="caption-dot" /><span>Indiranagar, Bengaluru</span><span className="caption-divider" /><span>Just feels right</span></div>
-            <motion.div className="floating-note" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.82, duration: 0.5 }}><span className="note-icon"><Check size={16} /></span><span><b>Good homes, good humans</b><small>Every listing is the real deal</small></span></motion.div>
-            <motion.div className="photo-coordinate" initial={{ opacity: 0, scale: 0.75 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 1, type: "spring", stiffness: 180, damping: 16 }}>
-              <span className="coordinate-icon"><MapPin size={16} /></span><span><b>12.9784° N</b><small>77.6408° E</small></span>
-            </motion.div>
-            <div className="photo-frame-index"><span>FEATURED HOME</span><span>№ 001</span></div>
-            <div className="image-index"><span>01</span> / 18</div>
-          </motion.div>
-        </section>
+      {/* ─── Crazy 4-Page Tearing Breakthrough Animation ─── */}
+      <TornPageBreakthrough
+        key={`portal-${breakthroughKey}`}
+        active={isTearing}
+        onComplete={() => setIsTearing(false)}
+      />
 
-        <section className="listing-section" id="explore-homes">
-          <div className="section-heading">
-            <div><div className="section-kicker">18 hand-picked sample homes</div><h2>Find your <em>somewhere.</em></h2></div>
-            <a className="browse-link" href="#listing-grid">See all homes <ArrowRight size={16} /></a>
-          </div>
-          <div className="listing-toolbar">
-            <div className="filter-tabs">
-              {["All homes", "Apartment", "House", "Condo", "Room"].map((filter) => (
-                <button key={filter} className={activeFilter === filter ? "filter-tab selected" : "filter-tab"} onClick={() => setActiveFilter(filter)}>{filter}</button>
+      {/* ─── Enhancement #11: Smooth page transition on mount with 3D Breakthrough ─── */}
+      <AnimatePresence mode="wait">
+        {!isBooting && (
+          <motion.main
+            key={`main-${breakthroughKey}`}
+            className={isTearing ? "breakthrough-emerge" : ""}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          >
+            <section className="hero" id="explore" ref={heroRef}>
+              {/* ─── Enhancement #7: Floating hero particles ─── */}
+              {heroParticles.map((p, i) => (
+                <motion.div
+                  key={i}
+                  className="hero-particle"
+                  style={{
+                    width: p.size,
+                    height: p.size,
+                    left: p.x,
+                    top: p.y,
+                  }}
+                  animate={{
+                    y: [0, -18, 0, 12, 0],
+                    x: [0, 8, -6, 4, 0],
+                    opacity: [0.3, 0.7, 0.5, 0.8, 0.3],
+                  }}
+                  transition={{
+                    duration: p.dur,
+                    delay: p.delay,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                />
               ))}
-            </div>
-            <div className="quick-filters">
-              <label className="facility-filter"><SlidersHorizontal size={14} /><select aria-label="Filter by facility" value={facility} onChange={(event) => setFacility(event.target.value)}><option value="">Any facilities</option><option value="pet friendly">Pet friendly</option><option value="parking">Parking</option><option value="metro">Near metro</option><option value="garden">Garden</option><option value="laundry">Laundry</option><option value="furnished">Furnished</option><option value="balcony">Balcony</option><option value="gym">Gym</option></select><ChevronDown size={13} /></label>
-              <label className="quick-search"><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search neighborhoods" aria-label="Search listings" /></label>
-            </div>
-          </div>
-          <div className="result-meta"><span><b>{visibleListings.length}</b> {savedOnly ? "saved homes" : "homes worth a look"}</span><button onClick={() => { setSearch(""); setLocation(""); setMaxPrice(""); setBedrooms("Any beds"); setFacility(""); setSavedOnly(false); setActiveFilter("All homes"); }}>Reset filters <ArrowDown size={13} /></button></div>
-          <div className="listing-grid" id="listing-grid">
-            {visibleListings.map((listing, index) => (
-              <motion.article className="listing-card" key={listing.id} layout initial={{ opacity: 0, y: 25, filter: "blur(3px)" }} whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }} whileHover={{ y: -7, transition: { duration: 0.3, ease: [0.2, 0.7, 0.2, 1] } }} viewport={{ once: true, amount: 0.14 }} transition={{ duration: 0.58, delay: (index % 6) * 0.055, ease: [0.2, 0.7, 0.2, 1] }}>
-                <div className="card-image-wrap">
-                  <img src={listing.image || photo} alt={listing.title} className="card-image" loading="lazy" onLoad={(event) => event.currentTarget.parentElement?.classList.add("image-loaded")} onError={(event) => {
-                    if (event.currentTarget.src !== photo) event.currentTarget.src = photo;
-                    else event.currentTarget.parentElement?.classList.add("image-loaded");
-                  }} />
-                  {listing.featured && <span className="featured-pill"><Sparkles size={12} /> A little special</span>}
-                  <button className={saved.includes(listing.id) ? "save-button is-saved" : "save-button"} onClick={() => toggleSaved(listing.id)} aria-label={saved.includes(listing.id) ? "Remove saved listing" : "Save listing"}><Heart size={18} fill={saved.includes(listing.id) ? "currentColor" : "none"} /></button>
-                  <div className="image-pagination"><span className="pagination-active" /><span /><span /></div>
-                </div>
-                <div className="card-content">
-                  <div className="card-location">{listing.neighborhood} <span>·</span> {listing.location.split(",")[0]}</div>
-                  <div className="card-title-row"><h3>{listing.title}</h3><span className="listing-type">{listing.type}</span></div>
-                  <div className="card-details"><span><BedDouble size={15} /> {listing.beds} bed</span><span><Bath size={15} /> {listing.baths} bath</span><span><Square size={14} /> {listing.area} sqft</span></div>
-                  {listing.tags && <div className="card-amenities">{listing.tags.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}{listing.tags.length > 2 && <span className="amenity-more">+{listing.tags.length - 2}</span>}</div>}
-                  <div className="card-bottom"><span className="card-price">{formatRent(listing.price)}<small> / month</small></span><button className="inquire-button" onClick={() => showInquiry(listing)}>Say hello <ArrowUpRight size={14} /></button></div>
-                </div>
-              </motion.article>
-            ))}
-            {visibleListings.length === 0 && <div className="empty-state"><Search size={28} /><h3>No homes match those filters yet</h3><p>Try another city or budget. There are {listings.length} Indian sample homes ready to explore.</p><button className="text-button" onClick={() => { setSearch(""); setLocation(""); setMaxPrice(""); setBedrooms("Any beds"); setFacility(""); setSavedOnly(false); setActiveFilter("All homes"); }}>Show me all homes</button></div>}
-          </div>
-          <button className="load-more" onClick={() => document.getElementById("explore")?.scrollIntoView({ behavior: "smooth" })}>Adjust your search <ArrowDown size={15} /></button>
-        </section>
 
-        <section className="owner-banner" id="how-it-works">
-          <div className="owner-copy"><span className="owner-kicker">For the people with keys</span><h2>Good places deserve<br />good <em>people.</em></h2><p>Share your space with renters who care about finding a home, not just a roof. We’ll make the introductions feel easy.</p><button className="owner-cta" onClick={() => setModal("owner")}>List your place <ArrowRight size={16} /></button></div>
-          <div className="owner-visual"><img src="https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1100&q=85" alt="Beautiful, welcoming home interior" loading="lazy" /><div className="owner-stamp"><span>For the</span><b>good<br />ones</b><span>always.</span></div><div className="owner-caption"><Wifi size={14} /> Your place, in the right hands</div></div>
-        </section>
-        <section className="closing-note" id="about"><span className="closing-sparkle">✳</span><p>Home isn’t a place you find.<br /><em>It’s a feeling you recognize.</em></p><span className="closing-signature">Here’s to finding yours. — RentRadar</span></section>
-      </main>
+              <div className="hero-copy">
+                <motion.div className="eyebrow" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.65, delay: 0.12, ease: [0.2, 0.7, 0.2, 1] }}>
+                  <span className="eyebrow-line" /> A better way to find home
+                </motion.div>
+                <motion.h1 initial={{ opacity: 0, y: 24, filter: "blur(5px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: 0.85, delay: 0.2, ease: [0.2, 0.7, 0.2, 1] }}>
+                  Find a place<br />that feels like <em>you.</em>
+                </motion.h1>
+                {/* ─── Enhancement #8: Typed text effect with blinking cursor ─── */}
+                <motion.p className="hero-subtitle" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.34 }}>
+                  Lovely homes across India. Good people. A little less<br className="desktop-break" /> scrolling, a lot more <span>feeling at home.</span>
+                  <span className="typing-cursor">|</span>
+                </motion.p>
+                <motion.div className="search-panel" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.42, ease: [0.2, 0.7, 0.2, 1] }}>
+                  <label className="search-field location-field">
+                    <MapPin size={18} />
+                    <span className="field-content"><span className="field-label">Where to?</span>
+                      <input aria-label="Neighborhood or city" placeholder="Try Bengaluru, Mumbai, Pune..." value={location} onChange={(event) => setLocation(event.target.value)} />
+                    </span>
+                  </label>
+                  <label className="search-field price-field">
+                    <span className="field-content"><span className="field-label">Monthly budget</span>
+                      <select aria-label="Monthly budget" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)}>
+                        <option value="">Any budget</option><option value="15000">Up to ₹15,000</option><option value="25000">Up to ₹25,000</option><option value="35000">Up to ₹35,000</option><option value="50000">Up to ₹50,000</option><option value="75000">Up to ₹75,000</option>
+                      </select>
+                    </span><ChevronDown size={16} />
+                  </label>
+                  <label className="search-field bed-field">
+                    <span className="field-content"><span className="field-label">Bedrooms</span>
+                      <select aria-label="Bedrooms" value={bedrooms} onChange={(event) => setBedrooms(event.target.value)}>
+                        <option>Any beds</option><option>1+ beds</option><option>2+ beds</option><option>3+ beds</option>
+                      </select>
+                    </span><ChevronDown size={16} />
+                  </label>
+                  <button className="search-button" onClick={() => { setSavedOnly(false); document.getElementById("listing-grid")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}><Search size={17} /> Find my place</button>
+                </motion.div>
+                {/* ─── Enhancement #5: Animated counter in hero footnote ─── */}
+                <div className="hero-footnote"><Sparkles size={14} /> <strong>{listingCount}</strong> homes and counting <span>·</span> Personally reviewed <span>·</span> No bait-and-switch</div>
+                <motion.div className="city-shortcuts" initial="hidden" animate="visible" variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.07, delayChildren: 0.62 } } }}>
+                  <span className="city-shortcuts-label">EXPLORE</span>
+                  {["Bengaluru", "Mumbai", "Pune", "Hyderabad", "Delhi"].map((city) => <motion.button key={city} variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.32 }} onClick={() => searchCity(city)}>{city}<ArrowUpRight size={11} /></motion.button>)}
+                </motion.div>
+              </div>
+              {/* ─── Enhancement #14: Parallax hero image ─── */}
+              <motion.div className="hero-visual" initial={{ opacity: 0, y: 18, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 1, delay: 0.22, ease: [0.2, 0.7, 0.2, 1] }}>
+                <img
+                  ref={heroImageRef}
+                  className="hero-image"
+                  src={photo}
+                  alt="Warm, sunlit living room with natural textures"
+                  fetchPriority="high"
+                />
+                <div className="photo-caption"><span className="caption-dot" /><span>Indiranagar, Bengaluru</span><span className="caption-divider" /><span>Just feels right</span></div>
+                <motion.div className="photo-badge-rating" initial={{ opacity: 0, scale: 0.8, x: 20 }} animate={{ opacity: 1, scale: 1, x: 0 }} transition={{ delay: 1.15, type: "spring", stiffness: 200, damping: 18 }}>
+                  <span className="rating-star"><Star size={13} fill="#e5a93c" color="#e5a93c" /></span>
+                  <span><b>4.9 / 5</b><small>Verified Tenants</small></span>
+                </motion.div>
+                <motion.div className="floating-note" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.82, duration: 0.5 }}><span className="note-icon"><Check size={16} /></span><span><b>Good homes, good humans</b><small>Every listing is the real deal</small></span></motion.div>
+                <motion.div className="photo-coordinate" initial={{ opacity: 0, scale: 0.75 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 1, type: "spring", stiffness: 180, damping: 16 }}>
+                  <span className="coordinate-icon"><MapPin size={16} /></span><span><b>12.9784° N</b><small>77.6408° E</small></span>
+                </motion.div>
+                <div className="photo-frame-index"><span>FEATURED HOME</span><span>№ 001</span></div>
+                <div className="image-index"><span>01</span> / 18</div>
+              </motion.div>
+            </section>
+
+            <section className="listing-section" id="explore-homes">
+              {/* ─── Enhancement #6: Section heading reveal ─── */}
+              <motion.div
+                className="section-heading"
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.3 }}
+                transition={{ duration: 0.7, ease: [0.2, 0.7, 0.2, 1] }}
+              >
+                <div><div className="section-kicker">18 hand-picked sample homes</div><h2>Find your <em>somewhere.</em></h2></div>
+                <a className="browse-link" href="#listing-grid">See all homes <ArrowRight size={16} /></a>
+              </motion.div>
+              <div className="listing-toolbar">
+                <div className="filter-tabs">
+                  {["All homes", "Apartment", "House", "Condo", "Room"].map((filter) => (
+                    <button key={filter} className={activeFilter === filter ? "filter-tab selected" : "filter-tab"} onClick={() => setActiveFilter(filter)}>{filter}</button>
+                  ))}
+                </div>
+                <div className="quick-filters">
+                  <label className="facility-filter"><SlidersHorizontal size={14} /><select aria-label="Filter by facility" value={facility} onChange={(event) => setFacility(event.target.value)}><option value="">Any facilities</option><option value="pet friendly">Pet friendly</option><option value="parking">Parking</option><option value="metro">Near metro</option><option value="garden">Garden</option><option value="laundry">Laundry</option><option value="furnished">Furnished</option><option value="balcony">Balcony</option><option value="gym">Gym</option></select><ChevronDown size={13} /></label>
+                  <label className="quick-search"><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search neighborhoods" aria-label="Search listings" /></label>
+                </div>
+              </div>
+              <div className="result-meta"><span><b>{visibleListings.length}</b> {savedOnly ? "saved homes" : "homes worth a look"}</span><button onClick={() => { setSearch(""); setLocation(""); setMaxPrice(""); setBedrooms("Any beds"); setFacility(""); setSavedOnly(false); setActiveFilter("All homes"); }}>Reset filters <ArrowDown size={13} /></button></div>
+              <div className="listing-grid" id="listing-grid">
+                {visibleListings.map((listing, index) => (
+                  /* ─── Enhancement #4 + #13: 3D tilt + staggered entry with rotation ─── */
+                  <motion.article
+                    className="listing-card"
+                    key={listing.id}
+                    layout
+                    initial={{ opacity: 0, y: 35, filter: "blur(4px)", rotate: -1.5 }}
+                    whileInView={{ opacity: 1, y: 0, filter: "blur(0px)", rotate: 0 }}
+                    whileHover={{ y: -7, transition: { duration: 0.3, ease: [0.2, 0.7, 0.2, 1] } }}
+                    viewport={{ once: true, amount: 0.14 }}
+                    transition={{ duration: 0.62, delay: (index % 6) * 0.09, ease: [0.2, 0.7, 0.2, 1] }}
+                    onMouseMove={handleCardMouseMove}
+                    onMouseLeave={handleCardMouseLeave}
+                    style={{ transformStyle: "preserve-3d" }}
+                  >
+                    {/* ─── Enhancement #9: Image lazy load blur-up ─── */}
+                    <div className="card-image-wrap image-loading">
+                      <img src={listing.image || photo} alt={listing.title} className="card-image" loading="lazy" onLoad={(event) => {
+                        event.currentTarget.parentElement?.classList.add("image-loaded");
+                        event.currentTarget.parentElement?.classList.remove("image-loading");
+                      }} onError={(event) => {
+                        if (event.currentTarget.src !== photo) event.currentTarget.src = photo;
+                        else {
+                          event.currentTarget.parentElement?.classList.add("image-loaded");
+                          event.currentTarget.parentElement?.classList.remove("image-loading");
+                        }
+                      }} />
+                      {listing.featured && <span className="featured-pill"><Sparkles size={12} /> A little special</span>}
+                      <button className={saved.includes(listing.id) ? "save-button is-saved" : "save-button"} onClick={() => toggleSaved(listing.id)} aria-label={saved.includes(listing.id) ? "Remove saved listing" : "Save listing"}><Heart size={18} fill={saved.includes(listing.id) ? "currentColor" : "none"} /></button>
+                      <div className="image-pagination"><span className="pagination-active" /><span /><span /></div>
+                    </div>
+                    <div className="card-content">
+                      <div className="card-location">{listing.neighborhood} <span>·</span> {listing.location.split(",")[0]}</div>
+                      <div className="card-title-row"><h3>{listing.title}</h3><span className="listing-type">{listing.type}</span></div>
+                      <div className="card-details"><span><BedDouble size={15} /> {listing.beds} bed</span><span><Bath size={15} /> {listing.baths} bath</span><span><Square size={14} /> {listing.area} sqft</span></div>
+                      {listing.tags && <div className="card-amenities">{listing.tags.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}{listing.tags.length > 2 && <span className="amenity-more">+{listing.tags.length - 2}</span>}</div>}
+                      <div className="card-bottom"><span className="card-price">{formatRent(listing.price)}<small> / month</small></span><button className="inquire-button" onClick={() => showInquiry(listing)}>Say hello <ArrowUpRight size={14} /></button></div>
+                    </div>
+                  </motion.article>
+                ))}
+                {visibleListings.length === 0 && <div className="empty-state"><Search size={28} /><h3>No homes match those filters yet</h3><p>Try another city or budget. There are {listings.length} Indian sample homes ready to explore.</p><button className="text-button" onClick={() => { setSearch(""); setLocation(""); setMaxPrice(""); setBedrooms("Any beds"); setFacility(""); setSavedOnly(false); setActiveFilter("All homes"); }}>Show me all homes</button></div>}
+              </div>
+              <button className="load-more" onClick={() => document.getElementById("explore")?.scrollIntoView({ behavior: "smooth" })}>Adjust your search <ArrowDown size={15} /></button>
+            </section>
+
+            {/* ─── Enhancement #6: Owner banner reveal from left ─── */}
+            <section className="owner-banner" id="how-it-works">
+              <motion.div
+                className="owner-copy"
+                initial={{ opacity: 0, x: -60 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true, amount: 0.25 }}
+                transition={{ duration: 0.8, ease: [0.2, 0.7, 0.2, 1] }}
+              >
+                <span className="owner-kicker">For the people with keys</span><h2>Good places deserve<br />good <em>people.</em></h2><p>Share your space with renters who care about finding a home, not just a roof. We'll make the introductions feel easy.</p><button className="owner-cta" onClick={() => setModal("owner")}>List your place <ArrowRight size={16} /></button>
+              </motion.div>
+              <div className="owner-visual"><img src="https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1100&q=85" alt="Beautiful, welcoming home interior" loading="lazy" /><div className="owner-stamp"><span>For the</span><b>good<br />ones</b><span>always.</span></div><div className="owner-caption"><Wifi size={14} /> Your place, in the right hands</div></div>
+            </section>
+
+            {/* ─── Enhancement #6: Closing note reveal with scale ─── */}
+            <motion.section
+              className="closing-note"
+              id="about"
+              initial={{ opacity: 0, scale: 0.92 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true, amount: 0.35 }}
+              transition={{ duration: 0.75, ease: [0.2, 0.7, 0.2, 1] }}
+            >
+              <span className="closing-sparkle">✳</span><p>Home isn't a place you find.<br /><em>It's a feeling you recognize.</em></p><span className="closing-signature">Here's to finding yours. — RentRadar</span>
+            </motion.section>
+          </motion.main>
+        )}
+      </AnimatePresence>
+
+      {/* Main visible when booting (keep layout stable) */}
+      {isBooting && (
+        <main style={{ visibility: "hidden" }}>
+          <section className="hero" id="explore" />
+        </main>
+      )}
 
       <footer className="footer"><a className="brand footer-brand" href="#"><span className="brand-mark"><House size={16} /></span><span>rent<span className="brand-light">radar</span></span></a><span>Made for finding your kind of place.</span><span>© 2025 RentRadar</span></footer>
 
@@ -355,14 +644,14 @@ function App() {
           <motion.div className="modal-card" initial={{ opacity: 0, y: 18, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.98 }} transition={{ duration: 0.2 }}>
             <button className="modal-close" onClick={() => setModal(null)} aria-label="Close dialog"><X size={18} /></button>
             {modal === "inquiry" ? <>
-              <div className="modal-eyebrow">A good first hello</div><h2>Ask about this place.</h2><p className="modal-description">Tell the owner a little about yourself and what you’re looking for.</p>
+              <div className="modal-eyebrow">A good first hello</div><h2>Ask about this place.</h2><p className="modal-description">Tell the owner a little about yourself and what you're looking for.</p>
               <div className="modal-listing"><img src={selectedListing.image || photo} alt="" /><span><b>{selectedListing.title}</b><small>{selectedListing.neighborhood} · {formatRent(selectedListing.price)} / mo</small></span></div>
-              <form className="modal-form" onSubmit={submitInquiry}><label>Your name<input name="name" required placeholder="Alex Morgan" /></label><label>Email address<input name="email" type="email" required placeholder="alex@example.com" /></label><label>Your note<textarea name="message" required rows={3} placeholder="Hi! I’d love to know a little more about the place…" /></label><button className="modal-submit" type="submit">Send a little hello <ArrowRight size={16} /></button></form>
+              <form className="modal-form" onSubmit={submitInquiry}><label>Your name<input name="name" required placeholder="Alex Morgan" /></label><label>Email address<input name="email" type="email" required placeholder="alex@example.com" /></label><label>Your note<textarea name="message" required rows={3} placeholder="Hi! I'd love to know a little more about the place…" /></label><button className="modal-submit" type="submit">Send a little hello <ArrowRight size={16} /></button></form>
             </> : modal === "owner" ? <>
-              <div className="modal-eyebrow">Let’s find your people</div><h2>Share your place.</h2><p className="modal-description">A few details are all we need to get started. Every home is reviewed before it goes live.</p>
+              <div className="modal-eyebrow">Let's find your people</div><h2>Share your place.</h2><p className="modal-description">A few details are all we need to get started. Every home is reviewed before it goes live.</p>
               <form className="modal-form" onSubmit={submitListing}><label>Listing title<input name="title" required maxLength={140} placeholder="A sunny place to call home" /></label><div className="form-row"><label>Neighborhood<input name="neighborhood" required maxLength={80} placeholder="Indiranagar" /></label><label>City / state<input name="location" required maxLength={180} placeholder="Bengaluru, Karnataka" /></label></div><div className="form-row"><label>Monthly rent (₹)<input name="price" type="number" min="1" required placeholder="25000" /></label><label>Bedrooms<select name="beds" defaultValue="1"><option value="0">Studio</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4+</option></select></label></div><div className="form-row"><label>Bathrooms<input name="baths" type="number" min="1" max="20" required defaultValue="1" /></label><label>Area (sq ft)<input name="area" type="number" min="1" required placeholder="850" /></label></div><div className="form-row"><label>Home type<select name="type" defaultValue="Apartment"><option>Apartment</option><option>House</option><option>Condo</option><option>Room</option></select></label><label>Your email<input name="ownerEmail" type="email" required placeholder="you@example.com" /></label></div><label>Facilities, separated by commas<input name="facilities" maxLength={800} placeholder="Pet friendly, lift, parking" /></label><label>Photos (JPEG, PNG, or WebP; up to 8 MB each)<input name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple /></label><button className="modal-submit" type="submit">Send for a little review <ArrowRight size={16} /></button></form>
             </> : <>
-              <div className="modal-eyebrow">The owner’s corner</div><h2>Your places, your people.</h2><p className="modal-description">Check on your listings or help review new homes.</p>
+              <div className="modal-eyebrow">The owner's corner</div><h2>Your places, your people.</h2><p className="modal-description">Check on your listings or help review new homes.</p>
               <div className="dashboard-tabs"><button className={dashboardTab === "mine" ? "dashboard-tab active" : "dashboard-tab"} onClick={() => setDashboardTab("mine")}>My listings</button><button className={dashboardTab === "review" ? "dashboard-tab active" : "dashboard-tab"} onClick={loadModerationQueue}>Review queue</button></div>
               {dashboardTab === "mine" ? <><form className="dashboard-email" onSubmit={loadOwnerListings}><input aria-label="Owner email" type="email" required value={dashboardEmail} onChange={(event) => setDashboardEmail(event.target.value)} placeholder="Enter your listing email" /><button type="submit">Find listings</button></form><div className="dashboard-list">{ownerListings.length ? ownerListings.map((listing) => <div className="dashboard-item" key={listing.id}><span><b>{listing.title}</b><small>{listing.neighborhood} · {formatRent(listing.price)} / mo</small></span><i className={`status-${(listing.status || "pending").toLowerCase()}`}>{listing.status || "PENDING"}</i></div>) : <p className="dashboard-empty">Your listings will show up here.</p>}</div></> : <div className="dashboard-list">{moderationListings.length ? moderationListings.map((listing) => <div className="moderation-item" key={listing.id}><span><b>{listing.title}</b><small>{listing.neighborhood} · {listing.ownerEmail || ""}</small></span><div><button aria-label={`Approve ${listing.title}`} onClick={() => moderateListing(listing.id, "APPROVED")}><Check size={15} /></button><button aria-label={`Reject ${listing.title}`} onClick={() => moderateListing(listing.id, "REJECTED")}><X size={15} /></button></div></div>) : <p className="dashboard-empty">The review queue is all clear.</p>}</div>}
             </>}
@@ -370,24 +659,47 @@ function App() {
         </motion.div>}
       </AnimatePresence>
       <AnimatePresence>
-        {isBooting && <motion.div className="app-loader" role="status" aria-label="Loading RentRadar" initial={{ opacity: 1 }} exit={{ opacity: 0, scale: 1.015, transition: { duration: 0.45, ease: "easeInOut" } }}>
+        {isBooting && <motion.div className="app-loader" role="status" aria-label="Loading RentRadar" initial={{ opacity: 1 }} exit={{ opacity: 0, scale: 1.025, filter: "blur(6px)", transition: { duration: 0.55, ease: "easeInOut" } }}>
           <div className="loader-glow loader-glow-one" />
           <div className="loader-glow loader-glow-two" />
-          <motion.div className="loader-content" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: "easeOut" }}>
-            <motion.div className="loader-mark" animate={{ y: [0, -5, 0], rotate: [0, -3, 0] }} transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}>
-              <House size={27} strokeWidth={1.7} />
+          <motion.div className="loader-content" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: "easeOut" }}>
+            <motion.div className="loader-mark" animate={{ y: [0, -6, 0], rotate: [0, -3, 0] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}>
+              <House size={28} strokeWidth={1.8} />
               <span className="loader-orbit" />
+              <span className="loader-radar-sweep" />
             </motion.div>
             <div className="loader-brand">rent<span>radar</span></div>
             <p className="loader-caption">Somewhere good is just around the corner.</p>
-            <div className="loader-track"><motion.span initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: 0.9, ease: [0.7, 0, 0.3, 1] }} /></div>
-            <div className="loader-city"><MapPin size={12} /> FINDING HOMES ACROSS INDIA</div>
+            <div className="loader-track"><motion.span initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: 1.25, ease: [0.65, 0, 0.35, 1] }} /></div>
+            <motion.div key={bootPhase} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="loader-city">
+              <MapPin size={12} /> {bootPhase.toUpperCase()}
+            </motion.div>
           </motion.div>
           <div className="loader-footer"><span>MADE FOR THE FEELING OF HOME</span><span>01 — 18</span></div>
         </motion.div>}
       </AnimatePresence>
-      <AnimatePresence>{notice && <motion.div className="toast" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}><Check size={16} />{notice}<button onClick={() => setNotice("")} aria-label="Dismiss"><X size={15} /></button></motion.div>}</AnimatePresence>
-      <button className="back-top" aria-label="Back to top" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}><ArrowLeft size={15} /></button>
+
+      {/* ─── Enhancement #10: Enhanced toast with progress bar ─── */}
+      <AnimatePresence>{notice && <motion.div className="toast" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}><Check size={16} />{notice}<button onClick={() => setNotice("")} aria-label="Dismiss"><X size={15} /></button><motion.div className="toast-progress" initial={{ scaleX: 1 }} animate={{ scaleX: 0 }} transition={{ duration: 5, ease: "linear" }} /></motion.div>}</AnimatePresence>
+
+      {/* ─── Enhancement #3: Scroll-to-top button with animation ─── */}
+      <AnimatePresence>
+        {showBackTop && (
+          <motion.button
+            className="back-top back-top-visible"
+            aria-label="Back to top"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            initial={{ opacity: 0, scale: 0.6, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.6, y: 20 }}
+            whileHover={{ scale: 1.12, y: -4 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ duration: 0.25, ease: [0.2, 0.7, 0.2, 1] }}
+          >
+            <ArrowUp size={16} strokeWidth={2.3} />
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

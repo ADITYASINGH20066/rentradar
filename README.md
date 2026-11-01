@@ -13,6 +13,12 @@ A rental discovery experience for India, built with React, TypeScript, and Sprin
 - Rent displayed and submitted in Indian rupees (INR)
 - Demo listing cards so the experience works without a running API
 
+## Deploy on Render
+
+This repository includes a Render Blueprint and a Dockerfile that builds the React frontend and Spring Boot API into one service. In Render, choose **New → Blueprint**, connect this repository, and deploy. The site and API will share one URL.
+
+The default `render` profile uses the included in-memory H2 database so the demo starts without database credentials. Its listings, inquiries, and uploaded files are temporary and can be lost when the service restarts or redeploys. For persistent data, configure an external MySQL database in Render and set `SPRING_PROFILES_ACTIVE=mysql`, `DATABASE_URL`, `DATABASE_USERNAME`, and `DATABASE_PASSWORD` in the service's environment settings. Do not put database credentials in this repository.
+
 ## Run the frontend locally
 
 Requirements: Node.js 20+

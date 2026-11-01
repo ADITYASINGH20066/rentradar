@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: rentradar
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/listings
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: render
